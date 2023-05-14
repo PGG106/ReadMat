@@ -84,30 +84,7 @@ def RF(train_featuresRF, test_featuresRF, train_labelsRF, test_labelsRF):
     get_model_metrics(test_labelsRF, model_predictions)
 
 
-if __name__ == '__main__':
-    list_of_files = os.listdir("data\\Identification\\MFCC\\")
-    cumulative_df = pd.DataFrame()
-    for file in list_of_files:
-        data_set = loadmat("data\\Identification\\MFCC\\" + file)
-        features = data_set['feat']
-        labels = data_set['Y']
-        features_df = pd.DataFrame(features)
-        labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
-        combined_df = pd.concat([features_df, labels_df], axis=1)
-        cumulative_df = pd.concat([cumulative_df, combined_df]).sort_values(by="Subject")
-    # remove columns with null values
-    cumulative_df.dropna(inplace=True)
-    cumulative_df.drop("Session", axis=1, inplace=True)
-    # split again the features and the labels
-    features = cumulative_df.drop('Subject', axis=1)
-    labels = cumulative_df['Subject']
-    # split in train and test set
-    train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.30)
-    train_labels.sort_values().value_counts(sort=False).plot.bar()
-    # plt.show()
-
-    # RF(train_features, test_features, train_labels, test_labels)
-    # SVM(train_features, test_features, train_labels, test_labels)
+def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     # Create istance of the net
     model_3 = EegNet(input_features=168,
                      hidden_units=512,
@@ -155,6 +132,34 @@ if __name__ == '__main__':
         if epoch % 10 == 0:
             print(
                 f"Epoch: {epoch} | Loss: {loss:.4f}, Acc: {acc:.2f}% | Test loss: {test_loss:.4f}, Test acc: {test_acc:.2f}%")
+
+
+if __name__ == '__main__':
+    list_of_files = os.listdir("data\\Identification\\MFCC\\")
+    cumulative_df = pd.DataFrame()
+    for file in list_of_files:
+        data_set = loadmat("data\\Identification\\MFCC\\" + file)
+        features = data_set['feat']
+        labels = data_set['Y']
+        features_df = pd.DataFrame(features)
+        labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
+        combined_df = pd.concat([features_df, labels_df], axis=1)
+        cumulative_df = pd.concat([cumulative_df, combined_df]).sort_values(by="Subject")
+    # remove columns with null values
+    cumulative_df.dropna(inplace=True)
+    # Keep a version of the Dataframe with the Sessions intact for experiment 2
+    preserve_df = cumulative_df.copy()
+    cumulative_df.drop("Session", axis=1, inplace=True)
+    # split again the features and the labels
+    features = cumulative_df.drop('Subject', axis=1)
+    labels = cumulative_df['Subject']
+    # split in train and test set
+    train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.30)
+    train_labels.sort_values().value_counts(sort=False).plot.bar()
+    # plt.show()
+    # RF(train_features, test_features, train_labels, test_labels)
+    # SVM(train_features, test_features, train_labels, test_labels)
+    # NN(train_features,test_features,train_labels,test_labels)
 
     # CNN dataset construction, proof that it's not doable
     # load a file (TODO: do this on all files)
