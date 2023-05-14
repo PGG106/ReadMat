@@ -16,15 +16,29 @@ from torch import nn
 
 
 class EegNet(nn.Module):
-    def __init__(self):
+    def __init__(self, input_features, output_features, hidden_units=8):
+        """Initializes multi-class classification model.
+
+        Args:
+          input_features (int): Number of input features to the model
+          output_features (int): Number of outputs features (number of output classes)
+          hidden_units (int): Number of hidden units between layers, default 8
+
+        Returns:
+
+        Example:
+        """
         super().__init__()
-        self.layer_1 = nn.Linear(in_features=168, out_features=512)
-        self.layer_2 = nn.Linear(in_features=512, out_features=512)
-        self.layer_3 = nn.Linear(in_features=512, out_features=20)
-        self.relu = nn.ReLU()
+        self.linear_layer_stack = nn.Sequential(
+            nn.Linear(in_features=input_features, out_features=hidden_units),
+            nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=hidden_units),
+            nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=output_features)
+        )
 
     def forward(self, x):
-        return self.layer_3(self.relu(self.layer_2(self.relu(self.layer_1(x)))))
+        return self.linear_layer_stack(x)
 
 
 def get_model_metrics(test_labels, model_predictions):
@@ -95,24 +109,52 @@ if __name__ == '__main__':
     # RF(train_features, test_features, train_labels, test_labels)
     # SVM(train_features, test_features, train_labels, test_labels)
     # Create istance of the net
-    model_3 = EegNet()
+    model_3 = EegNet(input_features=168,
+                     hidden_units=512,
+                     output_features=21)
     # Set loss function and optimizer
-    loss_fn = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.SGD(model_3.parameters(),
-                                lr=0.1)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model_3.parameters(),
+                                  lr=0.001)
+
     # Tensor-ise data
     train_features_tensor = torch.tensor(train_features.values).to(torch.float32)
     test_features_tensor = torch.tensor(test_features.values).to(torch.float32)
-    train_labels_tensor = torch.tensor(train_labels.values).to(torch.float32)
-    test_labels_tensor = torch.tensor(test_labels.values).to(torch.float32)
+    train_labels_tensor = torch.tensor(train_labels.values)
+    test_labels_tensor = torch.tensor(test_labels.values)
+    # Correct for labels 1 indexing
+    train_labels_tensor = train_labels_tensor - 1
+    test_labels_tensor = test_labels_tensor - 1
+
     # Set a manual seed
     torch.manual_seed(42)
     # Loop through data
-    epochs = 10
-
+    epochs = 500
     for epoch in range(epochs):
         # Training
-        model_3.train()
+        y_logits = model_3(train_features_tensor)
+        y_pred = torch.softmax(y_logits, dim=1).argmax(dim=1)
+        loss = loss_fn(y_logits, train_labels_tensor)
+        acc = accuracy_fn(y_true=train_labels_tensor,
+                          y_pred=y_pred)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        ### Testing
+        model_3.eval()
+        with torch.inference_mode():
+            test_logits = model_3(test_features_tensor)
+            test_preds = torch.softmax(test_logits, dim=1).argmax(dim=1)
+
+            test_loss = loss_fn(test_logits, test_labels_tensor)
+            test_acc = accuracy_fn(y_true=test_labels_tensor,
+                                   y_pred=test_preds)
+
+        # Print out what's happenin'
+        if epoch % 10 == 0:
+            print(
+                f"Epoch: {epoch} | Loss: {loss:.4f}, Acc: {acc:.2f}% | Test loss: {test_loss:.4f}, Test acc: {test_acc:.2f}%")
 
     # CNN dataset construction, proof that it's not doable
     # load a file (TODO: do this on all files)
