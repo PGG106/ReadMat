@@ -106,7 +106,7 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     # Set a manual seed
     torch.manual_seed(42)
     # Loop through data
-    epochs = 500
+    epochs = 250
     for epoch in range(epochs):
         # Training
         y_logits = model_3(train_features_tensor)
@@ -132,6 +132,13 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
         if epoch % 10 == 0:
             print(
                 f"Epoch: {epoch} | Loss: {loss:.4f}, Acc: {acc:.2f}% | Test loss: {test_loss:.4f}, Test acc: {test_acc:.2f}%")
+
+    # Get a confusion matrix for the NN
+    y_logits = model_3(test_features_tensor)
+    model_predictions = torch.softmax(y_logits, dim=1).argmax(dim=1)
+    #adjust for equality between 0 and 1 indexing
+    model_predictions+=1
+    get_model_metrics(test_labelsNN, model_predictions)
 
 
 if __name__ == '__main__':
@@ -159,7 +166,7 @@ if __name__ == '__main__':
     # plt.show()
     # RF(train_features, test_features, train_labels, test_labels)
     # SVM(train_features, test_features, train_labels, test_labels)
-    # NN(train_features,test_features,train_labels,test_labels)
+    NN(train_features, test_features, train_labels, test_labels)
 
     # CNN dataset construction, proof that it's not doable
     # load a file (TODO: do this on all files)
