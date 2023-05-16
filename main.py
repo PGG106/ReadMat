@@ -46,7 +46,8 @@ def get_model_metrics(test_labels, model_predictions):
     precision = precision_score(
         test_labels,
         model_predictions,
-        average="macro")
+        average="macro",
+        zero_division=0)
     recall = recall_score(test_labels, model_predictions, average="macro")
     print("Accuracy:", accuracy)
     print("Precision:", precision)
@@ -174,6 +175,9 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     plt.show()
 
 
+# Experiment 1: Very naive approach, merge all the data and to a train test split Problem found: Metrics are
+# inflated, the net appears able to learn how to identify a person, but it
+# actually just learns to distinguish a session
 def Experiment1(cumulative_df):
     cumulative_df.drop("Session", axis=1, inplace=True)
     # split again the features and the labels
@@ -189,6 +193,8 @@ def Experiment1(cumulative_df):
     # NN(train_features, test_features, train_labels, test_labels)
 
 
+# Experiment 2: Use an entire session as the test set. This shows the
+# previous approach is wrong and gives a baseline for the next experiments
 def Experiment2(preserve_df):
     # Experiment 2, use an entire session for each subject as the test data
     # Divide the sessions
@@ -207,6 +213,28 @@ def Experiment2(preserve_df):
     # RF(train_features, test_features, train_labels, test_labels)
     # SVM(train_features, test_features, train_labels, test_labels)
     # NN(train_features, test_features, train_labels, test_labels)
+
+# Experiment 3: like Experiment 2, but we use only the file that gave the best result according to the paper.
+# This significantly improves the results of experiment 2
+def Experiment3():
+    data_set = loadmat("data\\Identification\\MFCC\\MFCC_rest_closed.mat")
+    features = data_set['feat']
+    labels = data_set['Y']
+    features_df = pd.DataFrame(features)
+    labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
+    combined_df = pd.concat([features_df, labels_df], axis=1)
+    combined_df.dropna(inplace=True)
+    session1 = combined_df[combined_df.Session == 1].copy()
+    session2_3 = combined_df[combined_df.Session != 1].copy()
+    # Remove the session column from both sets
+    train = session2_3.drop("Session", axis=1)
+    test = session1.drop("Session", axis=1)
+    # Split features and labels
+    train_features = train.drop('Subject', axis=1)
+    train_labels = train['Subject']
+    test_features = test.drop('Subject', axis=1)
+    test_labels = test['Subject']
+    NN(train_features, test_features, train_labels, test_labels)
 
 
 if __name__ == '__main__':
@@ -227,19 +255,4 @@ if __name__ == '__main__':
     preserve_df = cumulative_df.copy()
     Experiment1(cumulative_df)
     Experiment2(preserve_df)
-    # CNN dataset construction, proof that it's not doable
-    # load a file (TODO: do this on all files)
-    data_set = loadmat("data\\Identification\\MFCC\\MFCC_vepc10.mat")
-    features = data_set['feat']
-    labels = data_set['Y']
-    features_df = pd.DataFrame(features)
-    labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
-    combined_df = pd.concat([features_df, labels_df], axis=1)
-    # Split the file based on subject and session
-    subjects = combined_df.groupby(["Subject","Session"])
-    for group in subjects:
-        keys=group[1].keys()
-        signal = group[1][1]
-        print(signal[:1024])
-        plt.plot(signal[:1024])
-        plt.show()
+    Experiment3()
