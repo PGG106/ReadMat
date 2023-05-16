@@ -45,7 +45,10 @@ def get_model_metrics(test_labels, model_predictions):
         model_predictions,
         average="macro",
         zero_division=0)
-    recall = recall_score(test_labels, model_predictions, average="macro")
+    recall = recall_score(test_labels,
+                          model_predictions,
+                          average="macro",
+                          zero_division=0)
     print("Accuracy:", accuracy)
     print("Precision:", precision)
     print("Recall:", recall)
@@ -116,7 +119,7 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     # Set a manual seed
     torch.manual_seed(42)
     # Loop through data
-    epochs = 250
+    epochs = 100
     for epoch in range(epochs):
         # Training
         y_logits = model_3(train_features_tensor)
@@ -211,10 +214,9 @@ def Experiment2(preserve_df):
     # SVM(train_features, test_features, train_labels, test_labels)
     # NN(train_features, test_features, train_labels, test_labels)
 
+
 # Experiment 3: like Experiment 2, but we use only the file that gave the best result according to the paper.
 # This significantly improves the results of experiment 2
-
-
 def Experiment3():
     data_set = loadmat("data\\Identification\\MFCC\\MFCC_rest_closed.mat")
     features = data_set['feat']
@@ -233,6 +235,8 @@ def Experiment3():
     train_labels = train['Subject']
     test_features = test.drop('Subject', axis=1)
     test_labels = test['Subject']
+    RF(train_features, test_features, train_labels, test_labels)
+    SVM(train_features, test_features, train_labels, test_labels)
     NN(train_features, test_features, train_labels, test_labels)
 
 
