@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
@@ -10,6 +9,8 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_s
 from sklearn.model_selection import train_test_split
 
 from torch import nn
+
+import utils
 
 
 class EegNet(nn.Module):
@@ -218,12 +219,7 @@ def Experiment2(preserve_df):
 # Experiment 3: like Experiment 2, but we use only the file that gave the best result according to the paper.
 # This significantly improves the results of experiment 2
 def Experiment3():
-    data_set = loadmat("data\\Identification\\MFCC\\MFCC_rest_closed.mat")
-    features = data_set['feat']
-    labels = data_set['Y']
-    features_df = pd.DataFrame(features)
-    labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
-    combined_df = pd.concat([features_df, labels_df], axis=1)
+    combined_df = utils.load_file("MFCC_rest_closed.mat")
     combined_df.dropna(inplace=True)
     session1 = combined_df[combined_df.Session == 1].copy()
     session2_3 = combined_df[combined_df.Session != 1].copy()
@@ -241,17 +237,7 @@ def Experiment3():
 
 
 if __name__ == '__main__':
-    list_of_files = os.listdir("data\\Identification\\MFCC\\")
-    cumulative_df = pd.DataFrame()
-    for file in list_of_files:
-        data_set = loadmat("data\\Identification\\MFCC\\" + file)
-        features = data_set['feat']
-        labels = data_set['Y']
-        features_df = pd.DataFrame(features)
-        labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
-        combined_df = pd.concat([features_df, labels_df], axis=1)
-        cumulative_df = pd.concat(
-            [cumulative_df, combined_df]).sort_values(by="Subject")
+    cumulative_df = utils.load_data()
     # remove columns with null values
     cumulative_df.dropna(inplace=True)
     # Keep a version of the Dataframe with the Sessions intact for experiment 2
