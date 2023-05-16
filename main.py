@@ -1,4 +1,3 @@
-# This is a sample Python script.
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,8 +8,6 @@ from scipy.io import loadmat
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
-from torch import nn
-from torch.utils.data import DataLoader
 
 from torch import nn
 
@@ -216,6 +213,8 @@ def Experiment2(preserve_df):
 
 # Experiment 3: like Experiment 2, but we use only the file that gave the best result according to the paper.
 # This significantly improves the results of experiment 2
+
+
 def Experiment3():
     data_set = loadmat("data\\Identification\\MFCC\\MFCC_rest_closed.mat")
     features = data_set['feat']
