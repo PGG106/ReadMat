@@ -136,9 +136,43 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     # Get a confusion matrix for the NN
     y_logits = model_3(test_features_tensor)
     model_predictions = torch.softmax(y_logits, dim=1).argmax(dim=1)
-    #adjust for equality between 0 and 1 indexing
-    model_predictions+=1
+    # adjust for equality between 0 and 1 indexing
+    model_predictions += 1
     get_model_metrics(test_labelsNN, model_predictions)
+
+
+def Experiment1(cumulative_df):
+    cumulative_df.drop("Session", axis=1, inplace=True)
+    # split again the features and the labels
+    features = cumulative_df.drop('Subject', axis=1)
+    labels = cumulative_df['Subject']
+    # split in train and test set
+    train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.30)
+    train_labels.sort_values().value_counts(sort=False).plot.bar()
+    # plt.show()
+    # RF(train_features, test_features, train_labels, test_labels)
+    # SVM(train_features, test_features, train_labels, test_labels)
+    # NN(train_features, test_features, train_labels, test_labels)
+
+
+def Experiment2(preserve_df):
+    # Experiment 2, use an entire session for each subject as the test data
+    # Divide the sessions
+    session1 = preserve_df[preserve_df.Session == 1]
+    session2_3 = preserve_df[preserve_df.Session != 1]
+    # Remove the session column from both sets
+    train = session2_3.drop("Session", axis=1)
+    test = session1.drop("Session", axis=1)
+    # Split features and labels
+    train_features = train.drop('Subject', axis=1)
+    train_labels = train['Subject']
+    test_features = test.drop('Subject', axis=1)
+    test_labels = test['Subject']
+    train_labels.sort_values().value_counts(sort=False).plot.bar()
+    # plt.show()
+    # RF(train_features, test_features, train_labels, test_labels)
+    # SVM(train_features, test_features, train_labels, test_labels)
+    # NN(train_features, test_features, train_labels, test_labels)
 
 
 if __name__ == '__main__':
@@ -156,18 +190,8 @@ if __name__ == '__main__':
     cumulative_df.dropna(inplace=True)
     # Keep a version of the Dataframe with the Sessions intact for experiment 2
     preserve_df = cumulative_df.copy()
-    cumulative_df.drop("Session", axis=1, inplace=True)
-    # split again the features and the labels
-    features = cumulative_df.drop('Subject', axis=1)
-    labels = cumulative_df['Subject']
-    # split in train and test set
-    train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.30)
-    train_labels.sort_values().value_counts(sort=False).plot.bar()
-    # plt.show()
-    # RF(train_features, test_features, train_labels, test_labels)
-    # SVM(train_features, test_features, train_labels, test_labels)
-    NN(train_features, test_features, train_labels, test_labels)
-
+    Experiment1(cumulative_df)
+    Experiment2(preserve_df)
     # CNN dataset construction, proof that it's not doable
     # load a file (TODO: do this on all files)
     # data_set = loadmat("data\\Identification\\MFCC\\MFCC_vepc10.mat")
