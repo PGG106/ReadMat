@@ -43,7 +43,10 @@ class EegNet(nn.Module):
 
 def get_model_metrics(test_labels, model_predictions):
     accuracy = accuracy_score(test_labels, model_predictions)
-    precision = precision_score(test_labels, model_predictions, average="macro")
+    precision = precision_score(
+        test_labels,
+        model_predictions,
+        average="macro")
     recall = recall_score(test_labels, model_predictions, average="macro")
     print("Accuracy:", accuracy)
     print("Precision:", precision)
@@ -95,14 +98,23 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
                                   lr=0.001)
 
     # Tensor-ise data
-    train_features_tensor = torch.tensor(train_features.values).to(torch.float32)
-    test_features_tensor = torch.tensor(test_features.values).to(torch.float32)
-    train_labels_tensor = torch.tensor(train_labels.values)
-    test_labels_tensor = torch.tensor(test_labels.values)
+    train_features_tensor = torch.tensor(
+        train_featuresNN.values).to(
+        torch.float32)
+    test_features_tensor = torch.tensor(
+        test_featuresNN.values).to(
+        torch.float32)
+    train_labels_tensor = torch.tensor(train_labelsNN.values)
+    test_labels_tensor = torch.tensor(test_labelsNN.values)
     # Correct for labels 1 indexing
     train_labels_tensor = train_labels_tensor - 1
     test_labels_tensor = test_labels_tensor - 1
-
+    # Store accuracy to plot it
+    test_accuracy_points = []
+    train_accuracy_points = []
+    # Store loss to plot it
+    test_loss_points = []
+    train_loss_points = []
     # Set a manual seed
     torch.manual_seed(42)
     # Loop through data
@@ -114,11 +126,11 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
         loss = loss_fn(y_logits, train_labels_tensor)
         acc = accuracy_fn(y_true=train_labels_tensor,
                           y_pred=y_pred)
-
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        ### Testing
+
+        # Testing
         model_3.eval()
         with torch.inference_mode():
             test_logits = model_3(test_features_tensor)
@@ -128,7 +140,11 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
             test_acc = accuracy_fn(y_true=test_labels_tensor,
                                    y_pred=test_preds)
 
-        # Print out what's happenin'
+        test_accuracy_points.append(test_acc)
+        train_accuracy_points.append(acc)
+        test_loss_points.append(test_loss)
+        train_loss_points.append(loss.detach().numpy())
+
         if epoch % 10 == 0:
             print(
                 f"Epoch: {epoch} | Loss: {loss:.4f}, Acc: {acc:.2f}% | Test loss: {test_loss:.4f}, Test acc: {test_acc:.2f}%")
@@ -138,7 +154,24 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     model_predictions = torch.softmax(y_logits, dim=1).argmax(dim=1)
     # adjust for equality between 0 and 1 indexing
     model_predictions += 1
+    # Get metrics and confusion matrix for the NN
     get_model_metrics(test_labelsNN, model_predictions)
+    # Plot the accuracy
+    plt.plot(train_accuracy_points)
+    plt.plot(test_accuracy_points)
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.show()
+    # Plot the loss
+    plt.plot(train_loss_points)
+    plt.plot(test_loss_points)
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.show()
 
 
 def Experiment1(cumulative_df):
@@ -147,7 +180,8 @@ def Experiment1(cumulative_df):
     features = cumulative_df.drop('Subject', axis=1)
     labels = cumulative_df['Subject']
     # split in train and test set
-    train_features, test_features, train_labels, test_labels = train_test_split(features, labels, test_size=0.30)
+    train_features, test_features, train_labels, test_labels = train_test_split(
+        features, labels, test_size=0.30)
     train_labels.sort_values().value_counts(sort=False).plot.bar()
     # plt.show()
     # RF(train_features, test_features, train_labels, test_labels)
@@ -185,7 +219,8 @@ if __name__ == '__main__':
         features_df = pd.DataFrame(features)
         labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
         combined_df = pd.concat([features_df, labels_df], axis=1)
-        cumulative_df = pd.concat([cumulative_df, combined_df]).sort_values(by="Subject")
+        cumulative_df = pd.concat(
+            [cumulative_df, combined_df]).sort_values(by="Subject")
     # remove columns with null values
     cumulative_df.dropna(inplace=True)
     # Keep a version of the Dataframe with the Sessions intact for experiment 2
@@ -194,17 +229,17 @@ if __name__ == '__main__':
     Experiment2(preserve_df)
     # CNN dataset construction, proof that it's not doable
     # load a file (TODO: do this on all files)
-    # data_set = loadmat("data\\Identification\\MFCC\\MFCC_vepc10.mat")
-    # features = data_set['feat']
-    # labels = data_set['Y']
-    # features_df = pd.DataFrame(features)
-    # labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
-    # combined_df = pd.concat([features_df, labels_df], axis=1)
-    # # Split the file based on subject and session
-    # subjects = combined_df.groupby(["Subject","Session"])
-    # for group in subjects:
-    #     keys=group[1].keys()
-    #     signal = group[1][1]
-    #     print(signal[:1024])
-    #     plt.plot(signal[:1024])
-    #     plt.show()
+    data_set = loadmat("data\\Identification\\MFCC\\MFCC_vepc10.mat")
+    features = data_set['feat']
+    labels = data_set['Y']
+    features_df = pd.DataFrame(features)
+    labels_df = pd.DataFrame(labels, columns=["Subject", "Session"])
+    combined_df = pd.concat([features_df, labels_df], axis=1)
+    # Split the file based on subject and session
+    subjects = combined_df.groupby(["Subject","Session"])
+    for group in subjects:
+        keys=group[1].keys()
+        signal = group[1][1]
+        print(signal[:1024])
+        plt.plot(signal[:1024])
+        plt.show()
