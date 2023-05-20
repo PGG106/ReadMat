@@ -140,7 +140,7 @@ def NN(
     epochs = 2000
     for epoch in range(epochs):
         # Training
-        y_logits = model_3(train_features_tensor)
+        y_logits = model_3(train_features_tensor.transpose())
         y_pred = torch.softmax(y_logits, dim=1).argmax(dim=1)
         loss = loss_fn(y_logits, train_labels_tensor)
         acc = accuracy_fn(y_true=train_labels_tensor,
@@ -261,7 +261,7 @@ def Experiment4():
         features, labels, test_size=0.30)
     print("starting the classification")
     RF(train_features, test_features, train_labels, test_labels)
-    NN(train_features, test_features, train_labels, test_labels, 11)
+    # NN(train_features, test_features, train_labels, test_labels, 11)
 
 
 if __name__ == '__main__':
