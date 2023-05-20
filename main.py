@@ -11,6 +11,7 @@ from sklearn.model_selection import train_test_split
 from torch import nn
 
 import utils
+from preprocess import Preprocess
 
 
 class EegNet(nn.Module):
@@ -29,6 +30,8 @@ class EegNet(nn.Module):
         super().__init__()
         self.linear_layer_stack = nn.Sequential(
             nn.Linear(in_features=input_features, out_features=hidden_units),
+            nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=hidden_units),
             nn.ReLU(),
             nn.Linear(in_features=hidden_units, out_features=hidden_units),
             nn.ReLU(),
@@ -57,7 +60,7 @@ def get_model_metrics(test_labels, model_predictions):
     cm = confusion_matrix(test_labels, model_predictions)
 
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    fig, ax = plt.subplots(figsize=(11, 11))
+    fig, ax = plt.subplots(figsize=(15, 15))
     disp.plot(ax=ax, cmap="binary")
 
     plt.show()
@@ -85,29 +88,42 @@ def RF(train_featuresRF, test_featuresRF, train_labelsRF, test_labelsRF):
     # Create a random forest classifier
     rf = RandomForestClassifier()
     rf.fit(train_featuresRF, train_labelsRF)
+    print("starting RF prediction")
     model_predictions = rf.predict(test_featuresRF)
     get_model_metrics(test_labelsRF, model_predictions)
 
 
-def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
+def NN(
+        train_featuresNN,
+        test_featuresNN,
+        train_labelsNN,
+        test_labelsNN,
+        input_features):
+    print("Neural network training started")
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(device)
+
     # Create istance of the net
-    model_3 = EegNet(input_features=168,
-                     hidden_units=512,
-                     output_features=21)
+    model_3 = EegNet(input_features=input_features,
+                     hidden_units=768,
+                     output_features=21).to(device)
     # Set loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model_3.parameters(),
-                                  lr=0.001)
+                                  lr=0.0001)
 
     # Tensor-ise data
     train_features_tensor = torch.tensor(
         train_featuresNN.values).to(
-        torch.float32)
+        torch.float32).to(device)
     test_features_tensor = torch.tensor(
         test_featuresNN.values).to(
-        torch.float32)
-    train_labels_tensor = torch.tensor(train_labelsNN.values)
-    test_labels_tensor = torch.tensor(test_labelsNN.values)
+        torch.float32).to(device)
+    train_labels_tensor = torch.tensor(
+        train_labelsNN.values).to(
+        torch.long).to(device)
+    test_labels_tensor = torch.tensor(test_labelsNN.values).to(torch.long).to(device)
     # Correct for labels 1 indexing
     train_labels_tensor = train_labels_tensor - 1
     test_labels_tensor = test_labels_tensor - 1
@@ -117,10 +133,11 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     # Store loss to plot it
     test_loss_points = []
     train_loss_points = []
+
     # Set a manual seed
     torch.manual_seed(42)
     # Loop through data
-    epochs = 100
+    epochs = 2000
     for epoch in range(epochs):
         # Training
         y_logits = model_3(train_features_tensor)
@@ -133,7 +150,6 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
         optimizer.step()
 
         # Testing
-        model_3.eval()
         with torch.inference_mode():
             test_logits = model_3(test_features_tensor)
             test_preds = torch.softmax(test_logits, dim=1).argmax(dim=1)
@@ -145,7 +161,7 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
         test_accuracy_points.append(test_acc)
         train_accuracy_points.append(acc)
         test_loss_points.append(test_loss)
-        train_loss_points.append(loss.detach().numpy())
+        train_loss_points.append(loss.detach().cpu().numpy())
 
         if epoch % 10 == 0:
             print(
@@ -157,7 +173,7 @@ def NN(train_featuresNN, test_featuresNN, train_labelsNN, test_labelsNN):
     # adjust for equality between 0 and 1 indexing
     model_predictions += 1
     # Get metrics and confusion matrix for the NN
-    get_model_metrics(test_labelsNN, model_predictions)
+    get_model_metrics(test_labelsNN, model_predictions.cpu())
     # Plot the accuracy
     plt.plot(train_accuracy_points)
     plt.plot(test_accuracy_points)
@@ -187,11 +203,9 @@ def Experiment1(cumulative_df):
     # split in train and test set
     train_features, test_features, train_labels, test_labels = train_test_split(
         features, labels, test_size=0.30)
-    train_labels.sort_values().value_counts(sort=False).plot.bar()
-    # plt.show()
     # RF(train_features, test_features, train_labels, test_labels)
     # SVM(train_features, test_features, train_labels, test_labels)
-    # NN(train_features, test_features, train_labels, test_labels)
+    # NN(train_features, test_features, train_labels, test_labels,168)
 
 
 # Experiment 2: Use an entire session as the test set. This shows the
@@ -209,11 +223,9 @@ def Experiment2(preserve_df):
     train_labels = train['Subject']
     test_features = test.drop('Subject', axis=1)
     test_labels = test['Subject']
-    train_labels.sort_values().value_counts(sort=False).plot.bar()
-    # plt.show()
     # RF(train_features, test_features, train_labels, test_labels)
     # SVM(train_features, test_features, train_labels, test_labels)
-    # NN(train_features, test_features, train_labels, test_labels)
+    # NN(train_features, test_features, train_labels, test_labels,168)
 
 
 # Experiment 3: like Experiment 2, but we use only the file that gave the best result according to the paper.
@@ -231,17 +243,34 @@ def Experiment3():
     train_labels = train['Subject']
     test_features = test.drop('Subject', axis=1)
     test_labels = test['Subject']
+    # RF(train_features, test_features, train_labels, test_labels)
+    # SVM(train_features, test_features, train_labels, test_labels)
+    # NN(train_features, test_features, train_labels, test_labels,168)
+
+
+# Experiment 4: Same as experiment 1 but with an original pre-processed dataset
+def Experiment4():
+    Preprocess()
+    exp4_df = pd.read_csv("Preprocessed_dataset.csv")
+    exp4_df.drop("Session", axis=1, inplace=True)
+    # split again the features and the labels
+    features = exp4_df.drop('Subject', axis=1)
+    labels = exp4_df['Subject']
+    # split in train and test set
+    train_features, test_features, train_labels, test_labels = train_test_split(
+        features, labels, test_size=0.30)
+    print("starting the classification")
     RF(train_features, test_features, train_labels, test_labels)
-    SVM(train_features, test_features, train_labels, test_labels)
-    NN(train_features, test_features, train_labels, test_labels)
+    NN(train_features, test_features, train_labels, test_labels, 11)
 
 
 if __name__ == '__main__':
-    cumulative_df = utils.load_data()
-    # remove columns with null values
-    cumulative_df.dropna(inplace=True)
+    # cumulative_df = utils.load_data()
+    # # remove columns with null values
+    # cumulative_df.dropna(inplace=True)
     # Keep a version of the Dataframe with the Sessions intact for experiment 2
-    preserve_df = cumulative_df.copy()
-    Experiment1(cumulative_df)
-    Experiment2(preserve_df)
-    Experiment3()
+    # preserve_df = cumulative_df.copy()
+    # Experiment1(cumulative_df)
+    # Experiment2(preserve_df)
+    # Experiment3()
+    Experiment4()
