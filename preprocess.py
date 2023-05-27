@@ -53,7 +53,7 @@ def Preprocess():
         # Transpose to get a signal in each row
         df = pd.DataFrame(data_set).transpose().copy()
         # Apply filter
-        b, a = butter(3, [0.1, 0.4], 'band', fs=256.0)
+        b, a = butter(3, [0.02, 0.4], 'band', fs=256.0)
         signal = filtfilt(b, a, df)
         coeffs = pywt.wavedec(signal, 'db1', mode='sym', level=2)
         coeff_df = pd.DataFrame(coeffs[0])

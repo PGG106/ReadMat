@@ -5,9 +5,10 @@ from sklearn import svm
 from scipy.io import loadmat
 # Modelling
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, precision_score, recall_score, \
+    f1_score
 from sklearn.model_selection import train_test_split
-
+from sklearn.model_selection import GridSearchCV
 from torch import nn
 
 import utils
@@ -53,17 +54,20 @@ def get_model_metrics(test_labels, model_predictions):
                           model_predictions,
                           average="macro",
                           zero_division=0)
+    f1_Score = f1_score(test_labels, model_predictions, average="macro")
     print("Accuracy:", accuracy)
     print("Precision:", precision)
     print("Recall:", recall)
+    print("F1 Score:", f1_Score)
     # Create the confusion matrix
     cm = confusion_matrix(test_labels, model_predictions)
 
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
     fig, ax = plt.subplots(figsize=(15, 15))
-    disp.plot(ax=ax, cmap="binary")
-
+    disp.plot(ax=ax, cmap="binary", colorbar=False)
+    plt.title("Confusion Matrix", fontsize=25)
     plt.show()
+    fig.savefig('temp.png', transparent=True)
 
 
 def accuracy_fn(y_true, y_pred):
@@ -86,7 +90,16 @@ def SVM(train_featuresSVM, test_featuresSVM, train_labelsSVM, test_labelsSVM):
 
 def RF(train_featuresRF, test_featuresRF, train_labelsRF, test_labelsRF):
     # Create a random forest classifier
-    rf = RandomForestClassifier()
+    # Optimal parameters: max_depth= None, max  features = 3, estimators = 200, sample_split = 2, sample_leaf = 1
+    rf = RandomForestClassifier(n_estimators=200, max_features=3, min_samples_split=2, min_samples_leaf=1)
+
+    # print("finding optimal parameters with GridSearch")
+    # grid_space = {'max_depth': [3, 5, 10, None],
+    #               'n_estimators': [10, 100, 200],
+    #               'max_features': [1, 3, 5, 7],
+    #               'min_samples_leaf': [1, 2, 3],
+    #               'min_samples_split': [1, 2, 3]
+    #               }
     rf.fit(train_featuresRF, train_labelsRF)
     print("starting RF prediction")
     model_predictions = rf.predict(test_featuresRF)
@@ -123,7 +136,9 @@ def NN(
     train_labels_tensor = torch.tensor(
         train_labelsNN.values).to(
         torch.long).to(device)
-    test_labels_tensor = torch.tensor(test_labelsNN.values).to(torch.long).to(device)
+    test_labels_tensor = torch.tensor(
+        test_labelsNN.values).to(
+        torch.long).to(device)
     # Correct for labels 1 indexing
     train_labels_tensor = train_labels_tensor - 1
     test_labels_tensor = test_labels_tensor - 1
@@ -192,65 +207,9 @@ def NN(
     plt.show()
 
 
-# Experiment 1: Very naive approach, merge all the data and to a train test split Problem found: Metrics are
-# inflated, the net appears able to learn how to identify a person, but it
-# actually just learns to distinguish a session
-def Experiment1(cumulative_df):
-    cumulative_df.drop("Session", axis=1, inplace=True)
-    # split again the features and the labels
-    features = cumulative_df.drop('Subject', axis=1)
-    labels = cumulative_df['Subject']
-    # split in train and test set
-    train_features, test_features, train_labels, test_labels = train_test_split(
-        features, labels, test_size=0.30)
-    # RF(train_features, test_features, train_labels, test_labels)
-    # SVM(train_features, test_features, train_labels, test_labels)
-    # NN(train_features, test_features, train_labels, test_labels,168)
-
-
-# Experiment 2: Use an entire session as the test set. This shows the
-# previous approach is wrong and gives a baseline for the next experiments
-def Experiment2(preserve_df):
-    # Experiment 2, use an entire session for each subject as the test data
-    # Divide the sessions
-    session1 = preserve_df[preserve_df.Session == 1]
-    session2_3 = preserve_df[preserve_df.Session != 1]
-    # Remove the session column from both sets
-    train = session2_3.drop("Session", axis=1)
-    test = session1.drop("Session", axis=1)
-    # Split features and labels
-    train_features = train.drop('Subject', axis=1)
-    train_labels = train['Subject']
-    test_features = test.drop('Subject', axis=1)
-    test_labels = test['Subject']
-    # RF(train_features, test_features, train_labels, test_labels)
-    # SVM(train_features, test_features, train_labels, test_labels)
-    # NN(train_features, test_features, train_labels, test_labels,168)
-
-
-# Experiment 3: like Experiment 2, but we use only the file that gave the best result according to the paper.
-# This significantly improves the results of experiment 2
-def Experiment3():
-    combined_df = utils.load_file("MFCC_rest_closed.mat")
-    combined_df.dropna(inplace=True)
-    session1 = combined_df[combined_df.Session == 1].copy()
-    session2_3 = combined_df[combined_df.Session != 1].copy()
-    # Remove the session column from both sets
-    train = session2_3.drop("Session", axis=1)
-    test = session1.drop("Session", axis=1)
-    # Split features and labels
-    train_features = train.drop('Subject', axis=1)
-    train_labels = train['Subject']
-    test_features = test.drop('Subject', axis=1)
-    test_labels = test['Subject']
-    # RF(train_features, test_features, train_labels, test_labels)
-    # SVM(train_features, test_features, train_labels, test_labels)
-    # NN(train_features, test_features, train_labels, test_labels,168)
-
-
 # Experiment 4: Same as experiment 1 but with an original pre-processed dataset
 def Experiment4():
-    Preprocess()
+    # Preprocess()
     exp4_df = pd.read_csv("Preprocessed_dataset.csv")
     exp4_df.drop("Session", axis=1, inplace=True)
     # split again the features and the labels
@@ -265,12 +224,4 @@ def Experiment4():
 
 
 if __name__ == '__main__':
-    # cumulative_df = utils.load_data()
-    # # remove columns with null values
-    # cumulative_df.dropna(inplace=True)
-    # Keep a version of the Dataframe with the Sessions intact for experiment 2
-    # preserve_df = cumulative_df.copy()
-    # Experiment1(cumulative_df)
-    # Experiment2(preserve_df)
-    # Experiment3()
     Experiment4()
